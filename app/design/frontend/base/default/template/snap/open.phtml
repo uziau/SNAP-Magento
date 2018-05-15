@@ -36,6 +36,8 @@ $mixpanel_key = $env == "production" ? "17253088ed3a39b1e2bd2cbcfeca939a" : "9dc
 $client_key = Mage::getStoreConfig('payment/snap/client_key');
 $merchant_id = Mage::getStoreConfig('payment/snap/merchant_id');
 $base_url = Mage::getBaseUrl();
+$success_page = $base_url . 'checkout/onepage/success';
+$failure_page = $base_url . 'snap/payment/cancel';
 
 Mage::log($token.$client_key.$merchant_id,null,'snap.log',true);
 ?>
@@ -44,7 +46,7 @@ Mage::log($token.$client_key.$merchant_id,null,'snap.log',true);
 </style>
 
 <div class="page-title">
-<h1>Your order has been received.</h1>
+<h1 id="order-message"><?php echo $this->__('Please Wait...') ?></h1>
 </div>
 
 <div class="box">
@@ -61,7 +63,10 @@ Mage::log($token.$client_key.$merchant_id,null,'snap.log',true);
     <?php
     }
     ?>
-    
+    <div class="credit-card-container">
+      <img src="<?php echo $this->getSkinUrl('images/load.gif')?>" width="50%" alt="loading credit card">
+    </div>
+
     <div id="result-type"></div>
     <div id="result-data"></div>
     <div id="status-message"></div>
@@ -70,15 +75,14 @@ Mage::log($token.$client_key.$merchant_id,null,'snap.log',true);
   </div>
 </div>
 
-<div class="buttons-set">
-  <button type="button" title="Continue Shopping" class="button btn-continue" onclick="window.location='<?php echo $this->getUrl() ?>'"><span><span>Continue Shopping</span></span></button>
-</div>  
 <script type="text/javascript">   
 
 var snapToken = "<?=$token?>";
 var merchantId = "<?=$merchant_id?>";
 var mixpanelKey = "<?=$mixpanel_key?>";
 var baseUrl = "<?=$base_url?>"; 
+var s = "<?=$success_page ?>";
+var f = "<?=$failure_page ?>";
 
     (function(e, a) {
         if (!a.__SV) {
@@ -154,6 +158,7 @@ var baseUrl = "<?=$base_url?>";
           );
     }
 
+    var transactionStatus = document.getElementById('order-message');
     var resultType = document.getElementById('result-type');
     var resultData = document.getElementById('result-data');
     var statusMessage = document.getElementById('status-message');
@@ -209,24 +214,25 @@ var baseUrl = "<?=$base_url?>";
             trackResult(snapToken, merchantId, 'fullpayment', 'success', result);
             changeResult('success', result);
             console.log(result.status_message);
-            
+            window.location.replace(s);
+
           },
           onPending: function(result){
             trackResult(snapToken, merchantId, 'fullpayment', 'pending', result);
             changeResult('pending', result);
             console.log(result.status_message);
-            
+            window.location.replace(s);
           },
           onError: function(result){
             trackResult(snapToken, merchantId, 'fullpayment', 'error', result);
             changeResult('error', result);
             console.log(result.status_message);
-            
+            window.location.replace(f);
           },
           onClose: function(){
             trackResult(snapToken, merchantId, 'fullpayment', 'close');
             console.log('customer closed the popup without finishing the payment');
-            window.location.replace(baseUrl);
+            location.reload();
           }
     
           });

@@ -233,6 +233,7 @@ class Midtrans_Snap_PaymentController
     catch (Exception $e) {
       error_log($e->getMessage());
       Mage::log('error:'.print_r($e->getMessage(),true),null,'snap.log',true);
+      $this->cancelAction(true);
     }
   }
 
@@ -255,6 +256,39 @@ class Midtrans_Snap_PaymentController
       $this->renderLayout();
   }
 
+  // After a successful payment on the midtrans website,
+  // it will be redirected here.
+  // please set the Finish Redirect URL on midtrans website to:
+  // [WHATEVER_WEBSITE_URL]/snap/payment/finish
+  public function finishAction() {
+    if(isset($_GET['id'])) {
+      //TODO: check status on midtrans website
+      //if success/pending, redirect to checkout/onepage/success
+      //if failed, redirect to checkout/onepage/failure
+      $id = $_GET['id'];
+      Veritrans_Config::$serverKey = Mage::getStoreConfig('payment/snap/server_key');
+      $transaction = Veritrans_Transaction::status($id);
+      $status_code = $transaction->status_code;
+      $status = $transaction->transaction_status;
+      
+      if($status == 'settlement' || $status == 'pending') {
+        //put $transaction_status to session
+        Mage::getSingleton('checkout/session')->setTransactionStatus($transaction);
+        Mage::getSingleton('checkout/session')->unsQuoteId();
+        //TODO: kasi tau berhasil atau pending
+        Mage_Core_Controller_Varien_Action::_redirect(
+            'checkout/onepage/success', array('_secure'=>false));
+      }
+      else {
+        $this->cancelAction();
+      }
+    }
+    else{
+      Mage::log('error: finish page reached without id',null,'snap.log',true);
+      Mage_Core_Controller_Varien_Action::_redirect('');
+    }
+  }
+
   // The response action is triggered when your gateway sends back a response
   // after processing the customer's payment, we will not update to success
   // because success is valid when notification (security reason)
@@ -272,8 +306,6 @@ class Midtrans_Snap_PaymentController
       else {
         // There is a problem in the response we got
         $this->cancelAction();
-        Mage_Core_Controller_Varien_Action::_redirect(
-            'checkout/onepage/failure', array('_secure'=>true));
       }
     }
     else{
@@ -344,10 +376,10 @@ class Midtrans_Snap_PaymentController
               'Thank you, your payment is successfully processed.');
         }
     }
-    else if ($transaction == 'cancel' || $transaction == 'deny' ) {
-       $order->setStatus(Mage_Sales_Model_Order::STATE_CANCELED);
+    else if ($transaction == 'deny' ) {
+       $order->setStatus(Mage_Sales_Model_Order::STATE_PENDING_PAYMENT);
     }   
-   else if ($transaction == 'settlement') {
+    else if ($transaction == 'settlement') {
       
       if($payment_type != 'credit_card'){
 
@@ -373,8 +405,8 @@ class Midtrans_Snap_PaymentController
      $order->sendOrderUpdateEmail(true,
             'Thank you, your payment is successfully processed.');
     }
-    else if ($transaction == 'cancel') {
-     $order->setStatus(Mage_Sales_Model_Order::STATE_CANCELED);
+    else if ($transaction == 'cancel' || $transaction == 'expire') {
+     $this->cancelAction(false);
     }
     else {
       $order->setStatus(Mage_Sales_Model_Order::STATUS_FRAUD);
@@ -383,7 +415,7 @@ class Midtrans_Snap_PaymentController
   }
 
   // The cancel action is triggered when an order is to be cancelled
-  public function cancelAction() {
+  public function cancelAction($redirectToFailpage = true) {
     if (Mage::getSingleton('checkout/session')->getLastRealOrderId()) {
         $order = Mage::getModel('sales/order')->loadByIncrementId(
             Mage::getSingleton('checkout/session')->getLastRealOrderId());
@@ -391,6 +423,12 @@ class Midtrans_Snap_PaymentController
       // Flag the order as 'cancelled' and save it
           $order->cancel()->setState(Mage_Sales_Model_Order::STATE_CANCELED,
               true, 'Gateway has declined the payment.')->save();
+        }
+
+        if ($redirectToFailpage == true){
+          Mage_Core_Controller_Varien_Action::_redirect(
+            'checkout/onepage/failure', array('_secure'=>true)
+          );
         }
     }
   }
