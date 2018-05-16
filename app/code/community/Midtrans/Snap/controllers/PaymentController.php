@@ -203,8 +203,7 @@ class Midtrans_Snap_PaymentController
             'unit' => $expiry_unit, 
             'duration'  => (int)$expiry_duration
           );
-    }  
-
+    }
 
     $totalPrice = 0;
 
@@ -261,31 +260,43 @@ class Midtrans_Snap_PaymentController
   // please set the Finish Redirect URL on midtrans website to:
   // [WHATEVER_WEBSITE_URL]/snap/payment/finish
   public function finishAction() {
-    if(isset($_GET['id'])) {
+    if(isset($_GET['id']) && $_GET['id'] != '') {
       //TODO: check status on midtrans website
       //if success/pending, redirect to checkout/onepage/success
       //if failed, redirect to checkout/onepage/failure
       $id = $_GET['id'];
       Veritrans_Config::$serverKey = Mage::getStoreConfig('payment/snap/server_key');
-      $transaction = Veritrans_Transaction::status($id);
-      $status_code = $transaction->status_code;
-      $status = $transaction->transaction_status;
       
-      if($status == 'settlement' || $status == 'pending') {
-        //put $transaction_status to session
-        Mage::getSingleton('checkout/session')->setTransactionStatus($transaction);
+      //because magento catch 404 as exception, we need to catch this here.
+      //if not, it will show the default magento error page
+      try {
+        $transaction = Veritrans_Transaction::status($id);
+        $status_code = $transaction->status_code;
+        $status = $transaction->transaction_status;
+        $fraud_status = $transaction->fraud_status;
+      }
+      catch (Exception $e){
+        $midtransError = array('status_code' => $e->getCode(),
+                               'transaction_message' => $e->getMessage());
+        Mage::getSingleton('checkout/session')->setMidtransError();
+      }
+      
+      if( ($status == 'settlement' || $status == 'pending' || $status == 'capture')
+          && ($fraud_status == 'accept' || $fraud_status == 'challenge') ) {
+        Mage::getSingleton('checkout/session')->setMidtransTransaction($transaction);
         Mage::getSingleton('checkout/session')->unsQuoteId();
-        //TODO: kasi tau berhasil atau pending
         Mage_Core_Controller_Varien_Action::_redirect(
             'checkout/onepage/success', array('_secure'=>false));
       }
       else {
+        Mage::getSingleton('checkout/session')->unsQuoteId();
         $this->cancelAction();
       }
     }
     else{
       Mage::log('error: finish page reached without id',null,'snap.log',true);
-      Mage_Core_Controller_Varien_Action::_redirect('');
+      Mage::getSingleton('checkout/session')->unsQuoteId();
+      $this->cancelAction();
     }
   }
 

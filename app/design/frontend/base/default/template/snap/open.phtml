@@ -36,8 +36,7 @@ $mixpanel_key = $env == "production" ? "17253088ed3a39b1e2bd2cbcfeca939a" : "9dc
 $client_key = Mage::getStoreConfig('payment/snap/client_key');
 $merchant_id = Mage::getStoreConfig('payment/snap/merchant_id');
 $base_url = Mage::getBaseUrl();
-$success_page = $base_url . 'checkout/onepage/success';
-$failure_page = $base_url . 'snap/payment/cancel';
+$finish_page = $base_url . 'snap/payment/finish?id=';
 
 Mage::log($token.$client_key.$merchant_id,null,'snap.log',true);
 ?>
@@ -81,8 +80,8 @@ var snapToken = "<?=$token?>";
 var merchantId = "<?=$merchant_id?>";
 var mixpanelKey = "<?=$mixpanel_key?>";
 var baseUrl = "<?=$base_url?>"; 
-var s = "<?=$success_page ?>";
-var f = "<?=$failure_page ?>";
+var finish_page = "<?=$finish_page ?>";
+
 
     (function(e, a) {
         if (!a.__SV) {
@@ -214,20 +213,20 @@ var f = "<?=$failure_page ?>";
             trackResult(snapToken, merchantId, 'fullpayment', 'success', result);
             changeResult('success', result);
             console.log(result.status_message);
-            window.location.replace(s);
+            window.location.replace(finish_page + result.transaction_id);
 
           },
           onPending: function(result){
             trackResult(snapToken, merchantId, 'fullpayment', 'pending', result);
             changeResult('pending', result);
             console.log(result.status_message);
-            window.location.replace(s);
+            window.location.replace(finish_page + result.transaction_id);
           },
           onError: function(result){
             trackResult(snapToken, merchantId, 'fullpayment', 'error', result);
             changeResult('error', result);
             console.log(result.status_message);
-            window.location.replace(f);
+            window.location.replace(finish_page + result.transaction_id);
           },
           onClose: function(){
             trackResult(snapToken, merchantId, 'fullpayment', 'close');
