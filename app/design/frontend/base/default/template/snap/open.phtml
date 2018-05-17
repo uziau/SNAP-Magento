@@ -211,26 +211,19 @@ var finish_page = "<?=$finish_page ?>";
           
           onSuccess: function(result){
             trackResult(snapToken, merchantId, 'fullpayment', 'success', result);
-            changeResult('success', result);
-            console.log(result.status_message);
             window.location.replace(finish_page + result.transaction_id);
 
           },
           onPending: function(result){
             trackResult(snapToken, merchantId, 'fullpayment', 'pending', result);
-            changeResult('pending', result);
-            console.log(result.status_message);
             window.location.replace(finish_page + result.transaction_id);
           },
           onError: function(result){
             trackResult(snapToken, merchantId, 'fullpayment', 'error', result);
-            changeResult('error', result);
-            console.log(result.status_message);
             window.location.replace(finish_page + result.transaction_id);
           },
           onClose: function(){
             trackResult(snapToken, merchantId, 'fullpayment', 'close');
-            console.log('customer closed the popup without finishing the payment');
             location.reload();
           }
     

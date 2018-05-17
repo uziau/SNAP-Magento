@@ -237,22 +237,33 @@ class Midtrans_Snap_PaymentController
   }
 
   public function opensnapAction(){
-      
-      $template = 'snap/open.phtml';
 
-      //Get current layout state
-      $this->loadLayout();          
-      
-      $block = $this->getLayout()->createBlock(
-          'Mage_Core_Block_Template',
-          'snap',
-          array('template' => $template)
-      );
-      
-      $this->getLayout()->getBlock('root')->setTemplate('page/1column.phtml');
-      $this->getLayout()->getBlock('content')->append($block);
-      $this->_initLayoutMessages('core/session'); 
-      $this->renderLayout();
+      //TODO: check dulu status ordernya, kalau udah ada dan statusnya bukan pending,
+      //langsung redirect ke homepage
+      $order_id = Mage::getSingleton('checkout/session')->getLastRealOrderId();
+      $order = Mage::getModel('sales/order')->loadByIncrementId($order_id);
+      $status = $order->getStatus();
+      if ($status != 'pending' && $status != 'pending_payment'){
+        $this->_redirect('/');
+      }
+      else {
+        $template = 'snap/open.phtml';
+
+        //Get current layout state
+        $this->loadLayout();
+
+        $block = $this->getLayout()->createBlock(
+            'Mage_Core_Block_Template',
+            'snap',
+            array('template' => $template)
+        );
+
+        $this->getLayout()->getBlock('root')->setTemplate('page/1column.phtml');
+        $this->getLayout()->getBlock('content')->append($block);
+        $this->_initLayoutMessages('core/session');
+        $this->renderLayout();
+      }
+
   }
 
   // After a successful payment on the midtrans website,
@@ -261,7 +272,7 @@ class Midtrans_Snap_PaymentController
   // [WHATEVER_WEBSITE_URL]/snap/payment/finish
   public function finishAction() {
     if(isset($_GET['id']) && $_GET['id'] != '') {
-      //TODO: check status on midtrans website
+      //check status on midtrans website
       //if success/pending, redirect to checkout/onepage/success
       //if failed, redirect to checkout/onepage/failure
       $id = $_GET['id'];
@@ -276,9 +287,9 @@ class Midtrans_Snap_PaymentController
         $fraud_status = $transaction->fraud_status;
       }
       catch (Exception $e){
-        $midtransError = array('status_code' => $e->getCode(),
-                               'transaction_message' => $e->getMessage());
-        Mage::getSingleton('checkout/session')->setMidtransError();
+        Mage::log($e->getMessage(),null,'snap.log',true);
+        Mage::getSingleton('checkout/session')->unsQuoteId();
+        $this->cancelAction();
       }
       
       if( ($status == 'settlement' || $status == 'pending' || $status == 'capture')
@@ -320,7 +331,7 @@ class Midtrans_Snap_PaymentController
       }
     }
     else{
-      Mage_Core_Controller_Varien_Action::_redirect('');
+      $this->_redirect('/');
     }
   }
   // Response early with 200 OK status for Midtrans notification & handle HTTP GET
@@ -387,9 +398,9 @@ class Midtrans_Snap_PaymentController
               'Thank you, your payment is successfully processed.');
         }
     }
-    else if ($transaction == 'deny' ) {
-       $order->setStatus(Mage_Sales_Model_Order::STATE_PENDING_PAYMENT);
-    }   
+    // else if ($transaction == 'deny' ) {
+    //    $order->setStatus(Mage_Sales_Model_Order::STATE_PENDING_PAYMENT);
+    // }   
     else if ($transaction == 'settlement') {
       
       if($payment_type != 'credit_card'){
@@ -411,10 +422,11 @@ class Midtrans_Snap_PaymentController
               'Thank you, your payment is successfully processed.');
       }
     }
-   else if ($transaction == 'pending') {
-     $order->setStatus(Mage_Sales_Model_Order::STATE_PENDING_PAYMENT);
-     $order->sendOrderUpdateEmail(true,
-            'Thank you, your payment is successfully processed.');
+    else if ($transaction == 'pending') {
+    //  $order->setStatus(Mage_Sales_Model_Order::STATE_PENDING_PAYMENT);
+    //  $order->sendOrderUpdateEmail(true,
+    //         'Thank you, your payment is successfully processed.');
+
     }
     else if ($transaction == 'cancel' || $transaction == 'expire') {
      $this->cancelAction(false);
@@ -423,6 +435,12 @@ class Midtrans_Snap_PaymentController
       $order->setStatus(Mage_Sales_Model_Order::STATUS_FRAUD);
     }
     $order->save();
+  }
+
+  protected function redirectToFailpage(){
+    Mage_Core_Controller_Varien_Action::_redirect(
+      'checkout/onepage/failure', array('_secure'=>true)
+    );
   }
 
   // The cancel action is triggered when an order is to be cancelled
@@ -437,9 +455,7 @@ class Midtrans_Snap_PaymentController
         }
 
         if ($redirectToFailpage == true){
-          Mage_Core_Controller_Varien_Action::_redirect(
-            'checkout/onepage/failure', array('_secure'=>true)
-          );
+         $this->redirectToFailpage();
         }
     }
   }
