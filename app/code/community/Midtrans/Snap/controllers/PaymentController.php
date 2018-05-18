@@ -398,9 +398,9 @@ class Midtrans_Snap_PaymentController
               'Thank you, your payment is successfully processed.');
         }
     }
-    // else if ($transaction == 'deny' ) {
+    else if ($transaction == 'deny' ) {
     //    $order->setStatus(Mage_Sales_Model_Order::STATE_PENDING_PAYMENT);
-    // }   
+    }   
     else if ($transaction == 'settlement') {
       
       if($payment_type != 'credit_card'){
