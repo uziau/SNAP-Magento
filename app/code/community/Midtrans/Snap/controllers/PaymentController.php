@@ -282,6 +282,8 @@ class Midtrans_Snap_PaymentController
       //if not, it will show the default magento error page
       try {
         $transaction = Veritrans_Transaction::status($id);
+        //put it in a session
+        Mage::getSingleton('checkout/session')->setMidtransTransaction($transaction);
         $status_code = $transaction->status_code;
         $status = $transaction->transaction_status;
         $fraud_status = $transaction->fraud_status;
@@ -294,7 +296,6 @@ class Midtrans_Snap_PaymentController
       
       if( ($status == 'settlement' || $status == 'pending' || $status == 'capture')
           && ($fraud_status == 'accept' || $fraud_status == 'challenge') ) {
-        Mage::getSingleton('checkout/session')->setMidtransTransaction($transaction);
         Mage::getSingleton('checkout/session')->unsQuoteId();
         Mage_Core_Controller_Varien_Action::_redirect(
             'checkout/onepage/success', array('_secure'=>false));
