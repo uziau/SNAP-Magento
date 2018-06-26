@@ -282,11 +282,16 @@ class Midtrans_Snap_PaymentController
       //if not, it will show the default magento error page
       try {
         $transaction = Veritrans_Transaction::status($id);
+          
+        //put it in log
+        Mage::log($transaction,null,'bca-UAT.log',true);
+        
         //put it in a session
         Mage::getSingleton('checkout/session')->setMidtransTransaction($transaction);
         $status_code = $transaction->status_code;
         $status = $transaction->transaction_status;
         $fraud_status = $transaction->fraud_status;
+        $payment_type = $transaction->payment_type;
       }
       catch (Exception $e){
         Mage::log($e->getMessage(),null,'snap.log',true);
@@ -294,19 +299,22 @@ class Midtrans_Snap_PaymentController
         $this->cancelAction();
       }
       
-      if( ($status == 'settlement' || $status == 'pending' || $status == 'capture')
+      if( ($status == 'settlement' || ($status == 'pending' && $payment_type != 'bca_klikpay') || $status == 'capture')
           && ($fraud_status == 'accept' || $fraud_status == 'challenge') ) {
         Mage::getSingleton('checkout/session')->unsQuoteId();
+        Mage::log('masuk ke success',null,'bca-UAT.log',true);
         Mage_Core_Controller_Varien_Action::_redirect(
             'checkout/onepage/success', array('_secure'=>false));
       }
       else {
         Mage::getSingleton('checkout/session')->unsQuoteId();
+        Mage::log('masuk ke failure',null,'bca-UAT.log',true);
         $this->cancelAction();
       }
     }
     else{
       Mage::log('error: finish page reached without id',null,'snap.log',true);
+      Mage::log('masuk ke error',null,'bca-UAT.log',true);
       Mage::getSingleton('checkout/session')->unsQuoteId();
       $this->cancelAction();
     }
